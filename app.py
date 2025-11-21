@@ -7,8 +7,12 @@ from agents.marketing import MarketingAgent
 from agents.risk import RiskAgent
 from agents.hr import HRAgent
 from moderator.moderator import ModeratorAgent
+from flask_cors import CORS
+
 
 app = Flask(__name__)
+
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 agent_sequence = ["CEO", "CFO", "Marketing", "Risk", "HR"]
 
