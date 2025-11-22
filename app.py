@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+import json
 from state import reset_state
 
 from agents.ceo import CEOAgent
@@ -26,10 +27,10 @@ agents = {
 
 moderator = ModeratorAgent()
 
+
 @app.route("/awake", methods=["GET"])
 def health():
     return "OK", 200
-
 
 
 @app.route("/chat", methods=["POST"])
@@ -44,6 +45,7 @@ def chat():
     user_id = data["user_id"]
     msg = data["message"].strip()
 
+    # New conversation starts here
     if moderator.state.get(user_id) is None:
         idea = msg.strip()
 
@@ -62,6 +64,7 @@ def chat():
             "done": False
         })
 
+    # Conversation in progress
     if moderator.state[user_id]["current_agent"] is not None:
 
         user_answer = msg.strip()
@@ -77,6 +80,7 @@ def chat():
 
         idx = agent_sequence.index(current_agent)
 
+        # Move to next agent
         if idx < len(agent_sequence) - 1:
             next_agent = agent_sequence[idx + 1]
             moderator.state[user_id]["current_agent"] = next_agent
@@ -89,20 +93,27 @@ def chat():
                 "done": False
             })
 
-        final_report = moderator.generate_final_report(
+        # LAST AGENT → Generate Final Report
+        final_report_raw = moderator.generate_final_report(
             user_id, moderator.state[user_id]["agent_outputs"]
         )
-        
-        moderator.state[user_id]["current_agent"] = None
 
+        # 🔥 ALWAYS return final_report as clean dict
+        try:
+            final_report_json = json.loads(final_report_raw)
+        except:
+            final_report_json = final_report_raw  # fallback
+
+        moderator.state[user_id]["current_agent"] = None
 
         return jsonify({
             "agent": "Moderator",
-            "final_report": final_report,
+            "final_report": final_report_json,   # 🔥 always object now
             "done": True,
             "message": "You’ve got a solid idea brewing here. If anything feels unclear or you’d like to discuss more, I’m here to help!"
         })
 
+    # Follow-up after final report
     followup = moderator.answer_followup(user_id, msg)
 
     return jsonify({
